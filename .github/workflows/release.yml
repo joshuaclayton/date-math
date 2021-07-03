@@ -1,0 +1,149 @@
+name: release
+on:
+  push:
+    tags:
+    - '[0-9]+.[0-9]+.[0-9]+'
+    - '[0-9]+.[0-9]+.[0-9]+.alpha'
+    - '[0-9]+.[0-9]+.[0-9]+.beta'
+    - '[0-9]+.[0-9]+.[0-9]+.rc'
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    # env:
+      # Set to force version number, e.g., when no tag exists.
+      # DATE_MATH_VERSION: TEST-0.0.0
+    steps:
+      - name: Create artifacts directory
+        run: mkdir artifacts
+
+      - name: Get the release version from the tag
+        if: env.DATE_MATH_VERSION == ''
+        run: |
+          # Apparently, this is the right way to get a tag name. Really?
+          #
+          # See: https://github.community/t5/GitHub-Actions/How-to-get-just-the-tag-name/m-p/32167/highlight/true#M1027
+          echo "DATE_MATH_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "version is: ${{ env.DATE_MATH_VERSION }}"
+
+      - name: Create GitHub release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.DATE_MATH_VERSION }}
+          release_name: ${{ env.DATE_MATH_VERSION }}
+
+      - name: Save release upload URL to artifact
+        run: echo "${{ steps.release.outputs.upload_url }}" > artifacts/release-upload-url
+
+      - name: Save version number to artifact
+        run: echo "${{ env.DATE_MATH_VERSION }}" > artifacts/release-version
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: artifacts
+          path: artifacts
+
+  build-release:
+    name: build-release
+    needs: ['create-release']
+    runs-on: ${{ matrix.os }}
+    env:
+      # For some builds, we use cross to test on 32-bit and big-endian
+      # systems.
+      CARGO: cargo
+      # When CARGO is set to CROSS, this is set to `--target matrix.target`.
+      TARGET_FLAGS:
+      # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
+      TARGET_DIR: ./target
+      # Emit backtraces on panics.
+      RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        build: [linux, macos]
+        include:
+        - build: linux
+          os: ubuntu-18.04
+          rust: stable
+          target: x86_64-unknown-linux-musl
+        - build: macos
+          os: macos-latest
+          rust: stable
+          target: x86_64-apple-darwin
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+        override: true
+        target: ${{ matrix.target }}
+
+    - name: Use Cross
+      run: |
+        cargo install cross
+        echo "CARGO=cross" >> $GITHUB_ENV
+        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+        echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+    - name: Show command used for Cargo
+      run: |
+        echo "cargo command is: ${{ env.CARGO }}"
+        echo "target flag is: ${{ env.TARGET_FLAGS }}"
+        echo "target dir is: ${{ env.TARGET_DIR }}"
+
+    - name: Get release download URL
+      uses: actions/download-artifact@v1
+      with:
+        name: artifacts
+        path: artifacts
+
+    - name: Set release upload URL and release version
+      shell: bash
+      run: |
+        release_upload_url="$(cat artifacts/release-upload-url)"
+        echo "RELEASE_UPLOAD_URL=$release_upload_url" >> $GITHUB_ENV
+        echo "release upload url: $RELEASE_UPLOAD_URL"
+        release_version="$(cat artifacts/release-version)"
+        echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+        echo "release version: $RELEASE_VERSION"
+
+    - name: Build release binary
+      run: ${{ env.CARGO }} build --verbose --release --bin date-math ${{ env.TARGET_FLAGS }}
+
+    - name: Strip release binary (Linux and macOS)
+      if: matrix.build == 'linux' || matrix.build == 'macos'
+      run: strip "target/${{ matrix.target }}/release/date-math"
+
+    - name: Build archive
+      shell: bash
+      run: |
+        staging="date-math-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
+        mkdir -p "$staging"
+
+        cp {README.md,LICENSE} "$staging/"
+
+        cp "target/${{ matrix.target }}/release/date-math" "$staging/"
+        tar czf "$staging.tar.gz" "$staging"
+        echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+
+    - name: Upload release archive
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ env.RELEASE_UPLOAD_URL }}
+        asset_path: ${{ env.ASSET }}
+        asset_name: ${{ env.ASSET }}
+        asset_content_type: application/octet-stream
+
+
