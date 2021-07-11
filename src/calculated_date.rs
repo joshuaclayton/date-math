@@ -25,7 +25,7 @@ pub fn parse(input: &str) -> IResult<&str, CalculatedDate> {
     alt((
         value(CalculatedDate::Today, tag("today")),
         map(
-            map_opt(take_till(|c: char| c == '+'), parse_date),
+            map_opt(take_till(|c: char| c == '+' || c == '-'), parse_date),
             CalculatedDate::Raw,
         ),
     ))(input)
