@@ -17,17 +17,40 @@ pub enum DateMath {
     StartWithPeriods(CalculatedDate, PeriodOp, Vec<PeriodOp>),
 }
 
-impl DateMath {
-    pub fn compute(&self) -> NaiveDate {
+#[derive(Debug, PartialEq)]
+pub enum ComputeOutcome {
+    Date(NaiveDate),
+}
+
+impl std::fmt::Display for ComputeOutcome {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            DateMath::Start(v) => v.calculate(),
+            ComputeOutcome::Date(date) => write!(f, "{}", date),
+        }
+    }
+}
+
+impl From<NaiveDate> for ComputeOutcome {
+    fn from(date: NaiveDate) -> Self {
+        ComputeOutcome::Date(date)
+    }
+}
+
+impl DateMath {
+    pub fn compute(&self) -> ComputeOutcome {
+        match self {
+            DateMath::Start(v) => v.calculate().into(),
             DateMath::StartWithPeriods(v, base, rest) => rest
                 .iter()
-                .fold(base.apply(v.calculate()), |acc, x| x.apply(acc)),
-            DateMath::Periods(base, rest) => rest.iter().fold(
-                chrono::Local::today().naive_local() + base.to_duration(),
-                |acc, x| x.apply(acc),
-            ),
+                .fold(base.apply(v.calculate()), |acc, x| x.apply(acc))
+                .into(),
+            DateMath::Periods(base, rest) => rest
+                .iter()
+                .fold(
+                    chrono::Local::today().naive_local() + base.to_duration(),
+                    |acc, x| x.apply(acc),
+                )
+                .into(),
         }
     }
 }
@@ -112,6 +135,9 @@ mod tests {
         )
         .compute();
 
-        assert_eq!(result, NaiveDate::from_ymd(2021, 7, 15));
+        assert_eq!(
+            result,
+            ComputeOutcome::Date(NaiveDate::from_ymd(2021, 7, 15))
+        );
     }
 }
