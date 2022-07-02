@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Period {
     Day(usize),
     Week(usize),

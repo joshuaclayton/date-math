@@ -91,6 +91,9 @@ pub fn parse(input: &str) -> IResult<&str, DateMath> {
             ),
             |(from, to)| DateMath::DateDiff(from, to),
         ),
+        map(period_operation::parse_relative, |(period_op, rest)| {
+            DateMath::StartWithPeriods(CalculatedDate::Today, period_op, rest)
+        }),
         map(calculated_date::parse, DateMath::Start),
         map(
             pair(period::parse, many0(period_operation::parse)),
@@ -116,6 +119,15 @@ mod tests {
                 CalculatedDate::Raw(NaiveDate::from_ymd_opt(2021, 1, 2).unwrap()),
                 PeriodOp::Add(Period::Week(15)),
                 vec![]
+            )
+        );
+
+        assert_eq!(
+            parse("2 weeks and 1 day ago").unwrap().1,
+            DateMath::StartWithPeriods(
+                CalculatedDate::Today,
+                PeriodOp::Subtract(Period::Week(2)),
+                vec![PeriodOp::Subtract(Period::Day(1))]
             )
         );
 
