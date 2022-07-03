@@ -2,8 +2,8 @@ use chrono::Duration;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{digit1, space0},
-    combinator::{map_res, opt, recognize},
+    character::complete::{digit1, space1},
+    combinator::{map, map_res, opt, recognize},
     sequence::{pair, terminated},
     IResult,
 };
@@ -30,7 +30,7 @@ impl Period {
 pub fn parse(input: &str) -> IResult<&str, Period> {
     map_res(
         pair(
-            terminated(parse_usize, space0),
+            terminated(alt((parse_usize, parse_written_number)), space1),
             terminated(
                 alt((tag("day"), tag("week"), tag("month"), tag("year"))),
                 opt(tag("s")),
@@ -48,6 +48,23 @@ pub fn parse(input: &str) -> IResult<&str, Period> {
 
 fn parse_usize(input: &str) -> IResult<&str, usize> {
     map_res(recognize(digit1), str::parse)(input)
+}
+
+fn parse_written_number(input: &str) -> IResult<&str, usize> {
+    alt((
+        map(tag("one"), |_| 1),
+        map(tag("two"), |_| 2),
+        map(tag("three"), |_| 3),
+        map(tag("four"), |_| 4),
+        map(tag("five"), |_| 5),
+        map(tag("six"), |_| 6),
+        map(tag("seven"), |_| 7),
+        map(tag("eight"), |_| 8),
+        map(tag("nine"), |_| 9),
+        map(tag("ten"), |_| 10),
+        map(tag("eleven"), |_| 11),
+        map(tag("twelve"), |_| 12),
+    ))(input)
 }
 
 #[cfg(test)]
@@ -71,5 +88,15 @@ mod tests {
         assert_eq!(parse("1 year").unwrap().1, Period::Year(1));
         assert_eq!(parse("2 years").unwrap().1, Period::Year(2));
         assert_eq!(parse("300 years").unwrap().1, Period::Year(300));
+    }
+
+    #[test]
+    fn test_nonsense() {
+        assert!(parse("1day").is_err());
+    }
+
+    #[test]
+    fn test_spelled_numbers() {
+        assert_eq!(parse("two days").unwrap().1, Period::Day(2));
     }
 }
