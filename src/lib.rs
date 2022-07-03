@@ -74,6 +74,23 @@ impl DateMath {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ParseResult<'a> {
+    Success(DateMath),
+    PartialSuccess(DateMath, &'a str),
+    Error(nom::Err<nom::error::Error<&'a str>>),
+}
+
+impl<'a> From<IResult<&'a str, DateMath>> for ParseResult<'a> {
+    fn from(result: IResult<&'a str, DateMath>) -> Self {
+        match result {
+            Ok(("", math)) => ParseResult::Success(math),
+            Ok((unparsed, math)) => ParseResult::PartialSuccess(math, unparsed),
+            Err(e) => ParseResult::Error(e),
+        }
+    }
+}
+
 pub fn parse(input: &str) -> IResult<&str, DateMath> {
     alt((
         map(

@@ -1,4 +1,4 @@
-use crate::parse;
+use crate::{parse, ParseResult};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -9,13 +9,13 @@ struct Flags {
 pub fn run() {
     let flags = Flags::from_args();
 
-    match parse(&flags.value) {
-        Ok(("", math)) => println!("{}", math.compute()),
-        Ok((unparsed, math)) => {
+    match parse(&flags.value).into() {
+        ParseResult::Success(math) => println!("{}", math.compute()),
+        ParseResult::PartialSuccess(math, unparsed) => {
             eprintln!("Unparsed input: '{}'", unparsed);
-            println!("{}", math.compute())
+            println!("{}", math.compute());
         }
-        Err(e) => {
+        ParseResult::Error(e) => {
             eprintln!("{}", e);
             std::process::exit(1)
         }
