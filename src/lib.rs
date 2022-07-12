@@ -2,6 +2,7 @@ mod calculated_date;
 pub mod cli;
 mod period;
 mod period_operation;
+mod relative_period;
 
 use calculated_date::CalculatedDate;
 use chrono::NaiveDate;
@@ -108,7 +109,7 @@ pub fn parse(input: &str) -> IResult<&str, DateMath> {
             ),
             |(from, to)| DateMath::DateDiff(from, to),
         ),
-        map(period_operation::parse_relative, |(period_op, rest)| {
+        map(relative_period::parse, |(period_op, rest)| {
             DateMath::StartWithPeriods(CalculatedDate::Today, period_op, rest)
         }),
         map(calculated_date::parse, DateMath::Start),
