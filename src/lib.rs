@@ -109,8 +109,8 @@ pub fn parse(input: &str) -> IResult<&str, DateMath> {
             ),
             |(from, to)| DateMath::DateDiff(from, to),
         ),
-        map(relative_period::parse, |(period_op, rest)| {
-            DateMath::StartWithPeriods(CalculatedDate::Today, period_op, rest)
+        map(relative_period::parse, |(date, period_op, rest)| {
+            DateMath::StartWithPeriods(date, period_op, rest)
         }),
         map(calculated_date::parse, DateMath::Start),
         map(
@@ -123,6 +123,29 @@ pub fn parse(input: &str) -> IResult<&str, DateMath> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_smoke() {
+        let examples = vec![
+            "today",
+            "yesterday",
+            "tomorrow",
+            "2 weeks ago",
+            "2 weeks from now",
+            "two weeks from tomorrow",
+            "1 week and 2 days ago",
+            "1 year, 2 weeks, and 3 days ago",
+            "January 15, 2021 + 2 weeks + 1 day",
+            "2 weeks and 1 day before January 15",
+            "2 weeks and 1 day from January 15",
+            "2 weeks and 1 day after January 15",
+        ];
+
+        assert!(examples
+            .iter()
+            .map(|v| parse(v).into())
+            .all(|v| is_parse_success(&v)));
+    }
 
     #[test]
     fn test_parse() {
@@ -252,5 +275,12 @@ mod tests {
 
     fn date(year: i32, month: u32, day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
+    }
+
+    fn is_parse_success(result: &ParseResult) -> bool {
+        match result {
+            ParseResult::Success(_) => true,
+            _ => false,
+        }
     }
 }

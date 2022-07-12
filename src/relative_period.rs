@@ -1,4 +1,4 @@
-use crate::{period, Period, PeriodOp};
+use crate::{calculated_date, period, CalculatedDate, Period, PeriodOp};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -9,15 +9,27 @@ use nom::{
     IResult,
 };
 
-pub fn parse(input: &str) -> IResult<&str, (PeriodOp, Vec<PeriodOp>)> {
+pub fn parse(input: &str) -> IResult<&str, (CalculatedDate, PeriodOp, Vec<PeriodOp>)> {
     let (input, (period, rest)) = parse_sentence(input)?;
 
     let result = alt((
         map(tag(" ago"), |_| {
-            build_period_op_pair(period, rest.clone(), PeriodOp::Subtract)
+            build_period_op_pair(
+                CalculatedDate::Today,
+                period,
+                rest.clone(),
+                PeriodOp::Subtract,
+            )
         }),
         map(tag(" from now"), |_| {
-            build_period_op_pair(period, rest.clone(), PeriodOp::Add)
+            build_period_op_pair(CalculatedDate::Today, period, rest.clone(), PeriodOp::Add)
+        }),
+        map(
+            preceded(alt((tag(" from "), tag(" after "))), calculated_date::parse),
+            |date| build_period_op_pair(date, period, rest.clone(), PeriodOp::Add),
+        ),
+        map(preceded(tag(" before "), calculated_date::parse), |date| {
+            build_period_op_pair(date, period, rest.clone(), PeriodOp::Subtract)
         }),
     ))(input);
 
@@ -25,14 +37,16 @@ pub fn parse(input: &str) -> IResult<&str, (PeriodOp, Vec<PeriodOp>)> {
 }
 
 fn build_period_op_pair<F>(
+    date: CalculatedDate,
     period: Period,
     rest: Vec<Period>,
     builder: F,
-) -> (PeriodOp, Vec<PeriodOp>)
+) -> (CalculatedDate, PeriodOp, Vec<PeriodOp>)
 where
     F: Fn(Period) -> PeriodOp,
 {
     (
+        date,
         builder(period),
         rest.into_iter().map(builder).collect::<Vec<PeriodOp>>(),
     )
@@ -72,17 +86,26 @@ fn parse_sentence(input: &str) -> IResult<&str, (Period, Vec<Period>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::NaiveDate;
 
     #[test]
     fn test_human_subtract() {
         assert_eq!(
             parse("3 days ago").unwrap().1,
-            (PeriodOp::Subtract(Period::Day(3)), Vec::new())
+            (
+                CalculatedDate::Today,
+                PeriodOp::Subtract(Period::Day(3)),
+                Vec::new()
+            )
         );
 
         assert_eq!(
             parse("12 years ago").unwrap().1,
-            (PeriodOp::Subtract(Period::Year(12)), Vec::new())
+            (
+                CalculatedDate::Today,
+                PeriodOp::Subtract(Period::Year(12)),
+                Vec::new()
+            )
         );
     }
 
@@ -91,6 +114,7 @@ mod tests {
         assert_eq!(
             parse("3 days and 1 week ago").unwrap().1,
             (
+                CalculatedDate::Today,
                 PeriodOp::Subtract(Period::Day(3)),
                 vec![PeriodOp::Subtract(Period::Week(1))]
             )
@@ -110,6 +134,7 @@ mod tests {
         assert_eq!(
             parse("1 year, 2 months, and 3 days from now").unwrap().1,
             (
+                CalculatedDate::Today,
                 PeriodOp::Add(Period::Year(1)),
                 vec![
                     PeriodOp::Add(Period::Month(2)),
@@ -123,12 +148,68 @@ mod tests {
     fn test_human_add() {
         assert_eq!(
             parse("3 days from now").unwrap().1,
-            (PeriodOp::Add(Period::Day(3)), Vec::new())
+            (
+                CalculatedDate::Today,
+                PeriodOp::Add(Period::Day(3)),
+                Vec::new()
+            )
         );
 
         assert_eq!(
             parse("12 weeks from now").unwrap().1,
-            (PeriodOp::Add(Period::Week(12)), Vec::new())
+            (
+                CalculatedDate::Today,
+                PeriodOp::Add(Period::Week(12)),
+                Vec::new()
+            )
+        );
+    }
+
+    #[test]
+    fn test_relative_from_different_base() {
+        assert_eq!(
+            parse("2 weeks and 3 days from tomorrow").unwrap().1,
+            (
+                CalculatedDate::Tomorrow,
+                PeriodOp::Add(Period::Week(2)),
+                vec![PeriodOp::Add(Period::Day(3))]
+            )
+        );
+
+        assert_eq!(
+            parse("2 weeks and 3 days after tomorrow").unwrap().1,
+            (
+                CalculatedDate::Tomorrow,
+                PeriodOp::Add(Period::Week(2)),
+                vec![PeriodOp::Add(Period::Day(3))]
+            )
+        );
+
+        assert_eq!(
+            parse("2 weeks and 3 days from today").unwrap().1,
+            (
+                CalculatedDate::Today,
+                PeriodOp::Add(Period::Week(2)),
+                vec![PeriodOp::Add(Period::Day(3))]
+            )
+        );
+
+        assert_eq!(
+            parse("2 weeks and 3 days before yesterday").unwrap().1,
+            (
+                CalculatedDate::Yesterday,
+                PeriodOp::Subtract(Period::Week(2)),
+                vec![PeriodOp::Subtract(Period::Day(3))]
+            )
+        );
+
+        assert_eq!(
+            parse("2 weeks and 3 days before July 11, 2022").unwrap().1,
+            (
+                CalculatedDate::Raw(NaiveDate::from_ymd(2022, 7, 11)),
+                PeriodOp::Subtract(Period::Week(2)),
+                vec![PeriodOp::Subtract(Period::Day(3))]
+            )
         );
     }
 }
