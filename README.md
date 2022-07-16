@@ -1,5 +1,8 @@
 # date-math
 
+![CI](https://github.com/joshuaclayton/date-math/workflows/CI/badge.svg)
+![Security audit](https://github.com/joshuaclayton/date-math/workflows/Security%20audit/badge.svg)
+
 A small CLI for doing date calculations.
 
 ## Usage / Examples
