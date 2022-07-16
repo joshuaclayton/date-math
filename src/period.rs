@@ -3,7 +3,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{digit1, space1},
-    combinator::{map, map_res, opt, recognize},
+    combinator::{map_res, opt, recognize, value},
     sequence::{pair, terminated},
     IResult,
 };
@@ -52,18 +52,18 @@ fn parse_usize(input: &str) -> IResult<&str, usize> {
 
 fn parse_written_number(input: &str) -> IResult<&str, usize> {
     alt((
-        map(tag("one"), |_| 1),
-        map(tag("two"), |_| 2),
-        map(tag("three"), |_| 3),
-        map(tag("four"), |_| 4),
-        map(tag("five"), |_| 5),
-        map(tag("six"), |_| 6),
-        map(tag("seven"), |_| 7),
-        map(tag("eight"), |_| 8),
-        map(tag("nine"), |_| 9),
-        map(tag("ten"), |_| 10),
-        map(tag("eleven"), |_| 11),
-        map(tag("twelve"), |_| 12),
+        value(1, tag("one")),
+        value(2, tag("two")),
+        value(3, tag("three")),
+        value(4, tag("four")),
+        value(5, tag("five")),
+        value(6, tag("six")),
+        value(7, tag("seven")),
+        value(8, tag("eight")),
+        value(9, tag("nine")),
+        value(10, tag("ten")),
+        value(11, tag("eleven")),
+        value(12, tag("twelve")),
     ))(input)
 }
 
