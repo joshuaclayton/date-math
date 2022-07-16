@@ -21,9 +21,6 @@ pub fn parse(input: &str) -> IResult<&str, (CalculatedDate, PeriodOp, Vec<Period
                 PeriodOp::Subtract,
             )
         }),
-        map(tag(" from now"), |_| {
-            build_period_op_pair(CalculatedDate::Today, period, rest.clone(), PeriodOp::Add)
-        }),
         map(
             preceded(alt((tag(" from "), tag(" after "))), calculated_date::parse),
             |date| build_period_op_pair(date, period, rest.clone(), PeriodOp::Add),

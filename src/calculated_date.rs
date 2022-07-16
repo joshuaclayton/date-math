@@ -28,6 +28,7 @@ impl CalculatedDate {
 pub fn parse(input: &str) -> IResult<&str, CalculatedDate> {
     alt((
         value(CalculatedDate::Today, tag("today")),
+        value(CalculatedDate::Today, tag("now")),
         value(CalculatedDate::Yesterday, tag("yesterday")),
         value(CalculatedDate::Tomorrow, tag("tomorrow")),
         map(
@@ -74,6 +75,11 @@ mod tests {
     fn test_date_relative() {
         assert_eq!(
             parse("today").unwrap().1.calculate(),
+            chrono::Local::today().naive_local()
+        );
+
+        assert_eq!(
+            parse("now").unwrap().1.calculate(),
             chrono::Local::today().naive_local()
         );
 
