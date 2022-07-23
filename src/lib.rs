@@ -50,19 +50,19 @@ impl From<NaiveDate> for ComputeOutcome {
 }
 
 impl DateMath {
-    pub fn compute(&self) -> ComputeOutcome {
+    pub fn compute(&self, today: NaiveDate) -> ComputeOutcome {
         match self {
             DateMath::DateDiff(from, to) => ComputeOutcome::DifferenceInDays(
-                (from.calculate() - to.calculate())
+                (from.calculate(today) - to.calculate(today))
                     .num_days()
                     .abs()
                     .try_into()
                     .unwrap(),
             ),
-            DateMath::Start(v) => v.calculate().into(),
+            DateMath::Start(v) => v.calculate(today).into(),
             DateMath::StartWithPeriods(v, base, rest) => rest
                 .iter()
-                .fold(base.apply(v.calculate()), |acc, x| x.apply(acc))
+                .fold(base.apply(v.calculate(today)), |acc, x| x.apply(acc))
                 .into(),
             DateMath::Periods(base, rest) => rest
                 .iter()
@@ -221,7 +221,7 @@ mod tests {
                 PeriodOp::Subtract(Period::Day(1)),
             ],
         )
-        .compute();
+        .compute(date(2022, 1, 31));
 
         assert_eq!(
             result,
@@ -235,7 +235,7 @@ mod tests {
             CalculatedDate::Raw(date(2021, 3, 31)),
             CalculatedDate::Raw(date(2021, 3, 24)),
         )
-        .compute();
+        .compute(date(2022, 1, 31));
 
         assert_eq!("7 days", result.to_string());
     }
@@ -246,7 +246,7 @@ mod tests {
             CalculatedDate::Raw(date(2021, 3, 31)),
             CalculatedDate::Raw(date(2021, 3, 31)),
         )
-        .compute();
+        .compute(date(2022, 1, 31));
 
         assert_eq!("0 days", result.to_string());
     }
@@ -257,7 +257,7 @@ mod tests {
             CalculatedDate::Raw(date(2021, 3, 31)),
             CalculatedDate::Raw(date(2021, 3, 30)),
         )
-        .compute();
+        .compute(date(2022, 1, 31));
 
         assert_eq!("1 day", result.to_string());
     }
@@ -268,7 +268,7 @@ mod tests {
             CalculatedDate::Raw(date(2021, 3, 24)),
             CalculatedDate::Raw(date(2021, 3, 31)),
         )
-        .compute();
+        .compute(date(2022, 1, 31));
 
         assert_eq!("7 days", result.to_string());
     }

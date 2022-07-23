@@ -15,12 +15,12 @@ pub enum CalculatedDate {
 }
 
 impl CalculatedDate {
-    pub fn calculate(&self) -> NaiveDate {
+    pub fn calculate(&self, today: NaiveDate) -> NaiveDate {
         match self {
             CalculatedDate::Raw(v) => *v,
-            CalculatedDate::Today => chrono::Local::today().naive_local(),
-            CalculatedDate::Yesterday => chrono::Local::today().naive_local() - Duration::days(1),
-            CalculatedDate::Tomorrow => chrono::Local::today().naive_local() + Duration::days(1),
+            CalculatedDate::Today => today,
+            CalculatedDate::Yesterday => today - Duration::days(1),
+            CalculatedDate::Tomorrow => today + Duration::days(1),
         }
     }
 }
@@ -71,27 +71,19 @@ fn parse_partial_date(value: &str) -> Option<NaiveDate> {
 mod tests {
     use super::*;
 
+    fn parse_and_calculate(value: &str, today: NaiveDate) -> NaiveDate {
+        parse(value).unwrap().1.calculate(today)
+    }
+
     #[test]
     fn test_date_relative() {
-        assert_eq!(
-            parse("today").unwrap().1.calculate(),
-            chrono::Local::today().naive_local()
-        );
+        let date = NaiveDate::from_ymd_opt(2022, 1, 31).unwrap();
+        let one_day = Duration::days(1);
 
-        assert_eq!(
-            parse("now").unwrap().1.calculate(),
-            chrono::Local::today().naive_local()
-        );
-
-        assert_eq!(
-            parse("yesterday").unwrap().1.calculate(),
-            chrono::Local::today().naive_local() - Duration::days(1)
-        );
-
-        assert_eq!(
-            parse("tomorrow").unwrap().1.calculate(),
-            chrono::Local::today().naive_local() + Duration::days(1)
-        );
+        assert_eq!(parse_and_calculate("today", date), date);
+        assert_eq!(parse_and_calculate("now", date), date);
+        assert_eq!(parse_and_calculate("yesterday", date), date - one_day);
+        assert_eq!(parse_and_calculate("tomorrow", date), date + one_day);
     }
 
     #[test]
