@@ -38,7 +38,7 @@ pub fn parse(input: &str) -> IResult<&str, CalculatedDate> {
     ))(input)
 }
 
-fn parse_date(value: &str) -> Option<NaiveDate> {
+pub(crate) fn parse_date(value: &str) -> Option<NaiveDate> {
     let value = value.trim();
     NaiveDate::parse_from_str(value, "%Y-%m-%d")
         .or(NaiveDate::parse_from_str(value, "%h %d, %Y"))
