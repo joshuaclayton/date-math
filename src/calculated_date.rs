@@ -1,8 +1,10 @@
+use crate::parser_utils::*;
 use chrono::{format, Datelike, Duration, NaiveDate};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
     combinator::{map, map_opt, value},
+    sequence::{terminated, tuple},
     IResult,
 };
 
@@ -31,6 +33,7 @@ pub fn parse(input: &str) -> IResult<&str, CalculatedDate> {
         value(CalculatedDate::Today, tag("now")),
         value(CalculatedDate::Yesterday, tag("yesterday")),
         value(CalculatedDate::Tomorrow, tag("tomorrow")),
+        map(parse_dash_date, CalculatedDate::Raw),
         map(
             map_opt(take_till(|c: char| c == '+' || c == '-'), parse_date),
             CalculatedDate::Raw,
@@ -38,10 +41,21 @@ pub fn parse(input: &str) -> IResult<&str, CalculatedDate> {
     ))(input)
 }
 
+fn parse_dash_date(input: &str) -> IResult<&str, NaiveDate> {
+    map_opt(
+        tuple((
+            terminated(parse_digits, tag("-")),
+            terminated(parse_digits, tag("-")),
+            parse_digits,
+        )),
+        |(year, month, day)| NaiveDate::from_ymd_opt(year, month, day),
+    )(input)
+}
+
 pub(crate) fn parse_date(value: &str) -> Option<NaiveDate> {
     let value = value.trim();
-    NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .or(NaiveDate::parse_from_str(value, "%h %d, %Y"))
+
+    NaiveDate::parse_from_str(value, "%h %d, %Y")
         .or(NaiveDate::parse_from_str(value, "%B %d"))
         .or(NaiveDate::parse_from_str(value, "%B %d, %Y"))
         .or(NaiveDate::parse_from_str(value, "%m/%d/%Y"))
@@ -87,17 +101,26 @@ mod tests {
     }
 
     #[test]
+    fn test_date_parse_exact() {
+        assert_eq!(
+            parse("2021-01-31").unwrap().1,
+            CalculatedDate::Raw(NaiveDate::from_ymd(2021, 1, 31))
+        );
+
+        assert_eq!(
+            parse("2021-1-31").unwrap().1,
+            CalculatedDate::Raw(NaiveDate::from_ymd(2021, 1, 31))
+        );
+    }
+
+    #[test]
+    fn test_date_parse_handles_invalid_dates() {
+        assert!(parse("2021-20-31").is_err());
+        assert!(parse("2021-01-32").is_err());
+    }
+
+    #[test]
     fn test_date_parse() {
-        assert_eq!(
-            parse_date("2021-01-31"),
-            NaiveDate::from_ymd_opt(2021, 1, 31)
-        );
-
-        assert_eq!(
-            parse_date(" 2021-01-31  "),
-            NaiveDate::from_ymd_opt(2021, 1, 31)
-        );
-
         assert_eq!(
             parse_date("Jan 31, 2021"),
             NaiveDate::from_ymd_opt(2021, 1, 31)

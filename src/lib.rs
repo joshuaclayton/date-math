@@ -132,6 +132,7 @@ mod tests {
             "yesterday",
             "tomorrow",
             "2 weeks ago",
+            "2022-01-20",
             "2 weeks from now",
             "two weeks from tomorrow",
             "1 week and 2 days ago",
