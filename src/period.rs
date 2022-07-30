@@ -1,9 +1,10 @@
+use crate::parser_utils::*;
 use chrono::Duration;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{digit1, space1},
-    combinator::{map_res, opt, recognize, value},
+    character::complete::space1,
+    combinator::{map_res, opt, value},
     sequence::{pair, terminated},
     IResult,
 };
@@ -30,7 +31,7 @@ impl Period {
 pub fn parse(input: &str) -> IResult<&str, Period> {
     map_res(
         pair(
-            terminated(alt((parse_usize, parse_written_number)), space1),
+            terminated(alt((parse_digits, parse_written_number)), space1),
             terminated(
                 alt((tag("day"), tag("week"), tag("month"), tag("year"))),
                 opt(tag("s")),
@@ -44,10 +45,6 @@ pub fn parse(input: &str) -> IResult<&str, Period> {
             _ => Err("unable to parse duration"),
         },
     )(input)
-}
-
-fn parse_usize(input: &str) -> IResult<&str, usize> {
-    map_res(recognize(digit1), str::parse)(input)
 }
 
 fn parse_written_number(input: &str) -> IResult<&str, usize> {
