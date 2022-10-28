@@ -4,16 +4,17 @@ mod parser_utils;
 mod period;
 mod period_operation;
 mod relative_period;
+mod time;
 
 use calculated_date::CalculatedDate;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveTime};
 use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::space0,
-    combinator::map,
+    combinator::{map, opt},
     multi::many0,
-    sequence::{delimited, pair, separated_pair},
+    sequence::{delimited, pair, preceded, separated_pair},
     IResult,
 };
 use period::Period;
@@ -24,6 +25,7 @@ use std::convert::TryInto;
 pub enum DateMath {
     Periods(Period, Vec<PeriodOp>),
     Start(CalculatedDate),
+    StartDateAndTime(CalculatedDate, NaiveTime),
     StartWithPeriods(CalculatedDate, PeriodOp, Vec<PeriodOp>),
     DateDiff(CalculatedDate, CalculatedDate),
 }
@@ -94,6 +96,13 @@ impl<'a> From<IResult<&'a str, DateMath>> for ParseResult<'a> {
 }
 
 pub fn parse(input: &str) -> IResult<&str, DateMath> {
+    let (input, date_math) = parse_date(input)?;
+    let (input, parsed_time) = opt(preceded(tag(" at "), time::parse))(input)?;
+
+    Ok((input, date_math))
+}
+
+fn parse_date(input: &str) -> IResult<&str, DateMath> {
     alt((
         map(
             pair(
@@ -134,6 +143,7 @@ mod tests {
             "2 weeks ago",
             "2022-01-20",
             "2 weeks from now",
+            "2 weeks from now at 3pm",
             "two weeks from tomorrow",
             "1 week and 2 days ago",
             "1 year, 2 weeks, and 3 days ago",
@@ -209,6 +219,17 @@ mod tests {
             DateMath::DateDiff(
                 CalculatedDate::Raw(date(2021, 3, 31)),
                 CalculatedDate::Raw(date(2021, 3, 24)),
+            )
+        );
+    }
+
+    #[test]
+    fn test_date_time() {
+        assert_eq!(
+            parse("Mar 31, 2021 at 2pm").unwrap().1,
+            DateMath::StartDateAndTime(
+                CalculatedDate::Raw(date(2021, 3, 31)),
+                NaiveTime::from_hms(14, 0, 0)
             )
         );
     }
